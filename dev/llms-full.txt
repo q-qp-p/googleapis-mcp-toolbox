@@ -3,7 +3,7 @@
 
 **DOCUMENTATION VERSION:** dev
 **BASE URL:** https://mcp-toolbox.dev/dev/
-**GENERATED ON:** 2026-08-04T18:22:24Z
+**GENERATED ON:** 2026-08-16T12:33:53Z
 
 ---
 ### System Directives for AI Models
@@ -219,7 +219,7 @@ To install Toolbox as a binary on Linux (AMD64):
 
 ```sh
 # see releases page for other versions
-export VERSION=1.8.0
+export VERSION=1.9.0
 curl -L -o toolbox https://storage.googleapis.com/mcp-toolbox-for-databases/v$VERSION/linux/amd64/toolbox
 chmod +x toolbox
 ```
@@ -230,7 +230,7 @@ To install Toolbox as a binary on macOS (Apple Silicon):
 
 ```sh
 # see releases page for other versions
-export VERSION=1.8.0
+export VERSION=1.9.0
 curl -L -o toolbox https://storage.googleapis.com/mcp-toolbox-for-databases/v$VERSION/darwin/arm64/toolbox
 chmod +x toolbox
 ```
@@ -241,7 +241,7 @@ To install Toolbox as a binary on macOS (Intel):
 
 ```sh
 # see releases page for other versions
-export VERSION=1.8.0
+export VERSION=1.9.0
 curl -L -o toolbox https://storage.googleapis.com/mcp-toolbox-for-databases/v$VERSION/darwin/amd64/toolbox
 chmod +x toolbox
 ```
@@ -252,7 +252,7 @@ To install Toolbox as a binary on Windows (Command Prompt):
 
 ```cmd
 :: see releases page for other versions
-set VERSION=1.8.0
+set VERSION=1.9.0
 curl -o toolbox.exe "https://storage.googleapis.com/mcp-toolbox-for-databases/v%VERSION%/windows/amd64/toolbox.exe"
 ```
 
@@ -262,7 +262,7 @@ To install Toolbox as a binary on Windows (PowerShell):
 
 ```powershell
 # see releases page for other versions
-$VERSION = "1.8.0"
+$VERSION = "1.9.0"
 curl.exe -o toolbox.exe "https://storage.googleapis.com/mcp-toolbox-for-databases/v$VERSION/windows/amd64/toolbox.exe"
 ```
 
@@ -272,7 +272,7 @@ To install Toolbox as a binary on Windows ARM64 (Command Prompt):
 
 ```cmd
 :: see releases page for other versions
-set VERSION=1.8.0
+set VERSION=1.9.0
 curl -o toolbox.exe "https://storage.googleapis.com/mcp-toolbox-for-databases/v%VERSION%/windows/arm64/toolbox.exe"
 ```
 
@@ -282,7 +282,7 @@ To install Toolbox as a binary on Windows ARM64 (PowerShell):
 
 ```powershell
 # see releases page for other versions
-$VERSION = "1.8.0"
+$VERSION = "1.9.0"
 curl.exe -o toolbox.exe "https://storage.googleapis.com/mcp-toolbox-for-databases/v$VERSION/windows/arm64/toolbox.exe"
 ```
 
@@ -294,7 +294,7 @@ You can also install Toolbox as a container:
 
 ```sh
 # see releases page for other versions
-export VERSION=1.8.0
+export VERSION=1.9.0
 docker pull us-central1-docker.pkg.dev/database-toolbox/toolbox/toolbox:$VERSION
 ```
 
@@ -313,7 +313,7 @@ To install from source, ensure you have the latest version of
 [Go installed](https://go.dev/doc/install), and then run the following command:
 
 ```sh
-go install github.com/googleapis/mcp-toolbox@v1.8.0
+go install github.com/googleapis/mcp-toolbox@v1.9.0
 ```
 
 {{% /tab %}}
@@ -1107,7 +1107,7 @@ In this section, we will download Toolbox, configure our tools in a
     <!-- {x-release-please-start-version} -->
     ```bash
     export OS="linux/amd64" # one of linux/amd64, darwin/arm64, darwin/amd64, windows/amd64, or windows/arm64
-    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/$OS/toolbox
+    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/$OS/toolbox
     ```
     <!-- {x-release-please-end} -->
 
@@ -3306,9 +3306,9 @@ When `mcpEnabled` is true, Toolbox also provisions the `/.well-known/oauth-prote
 
 ## Step 2: Deployment
 
-Deploying Toolbox with MCP auth requires defining the `TOOLBOX_URL` that the deployed service will use, as this URL must be included as the `resource` field in the PRM returned to the client.
+Deploying Toolbox with MCP auth requires defining an absolute `TOOLBOX_URL` (including scheme and host, e.g., `https://my-toolbox.example.com`) that the deployed service will use, as this URL must be included as the `resource` field in the PRM returned to the client.
 
-You can set this either through the `TOOLBOX_URL` environment variable or the `--toolbox-url` command-line flag during deployment.
+You can set this absolute URL either through the `TOOLBOX_URL` environment variable or the `--toolbox-url` command-line flag during deployment.
 
 ### Local Deployment
 
@@ -4012,7 +4012,7 @@ Try organizing your toolsets by the agent's persona or app feature (e.g., `data_
 {{< /notice >}}
 
 {{< notice note >}}
-A toolset is a tools-only [Group](../groups/). `kind: toolset` continues to work unchanged and needs no migration. That said, we recommend migrating to `kind: group` — even for tools-only collections — because a group lets you attach a `description` and scope other MCP primitives such as **prompts** alongside your **tools**.
+A toolset is a tools-only [Group](../groups/), and Toolbox now loads every `kind: toolset` as a group. Existing toolsets keep working, with three exceptions: a `description` written on a toolset is dropped (with a warning), unrecognized fields are rejected at startup, and reusing one name for both a `kind: toolset` and a `kind: group` is now a duplicate-name error. We recommend migrating to `kind: group` — even for tools-only collections — because a group lets you attach a `description` and scope other MCP primitives such as **prompts** alongside your **tools**. Run `toolbox migrate` to convert automatically.
 {{< /notice >}}
 
 ## Defining Toolsets
@@ -4088,12 +4088,14 @@ Connecting to a group's endpoint (`/mcp/{name}`) scopes the corresponding MCP li
 
 Declare a group as a `kind: group` document in your configuration file. A group has the following fields:
 
-| Field         | Required | Description                                                              |
-| ------------- | -------- | ------------------------------------------------------------------------ |
-| `name`        | Yes\*    | Unique name for the group. Used as the endpoint path (`/mcp/{name}`).    |
-| `description` | No       | Human-readable description of the group.                                |
-| `tools`       | No       | List of tool names to include in the group.                             |
-| `prompts`     | No       | List of prompt names to include in the group.                           |
+| Field         | Required | Description                                                                                    |
+| ------------- | -------- | -----------------------------------------------------------------------------------------------|
+| `name`        | Yes\*    | Unique name for the group. Used as the endpoint path (`/mcp/{name}`).                          |
+| `description` | No       | Human-readable description of the group.                                                       |
+| `tools`       | No       | List of tool names to include in the group.                                                    |
+| `prompts`     | No       | List of prompt names to include in the group.                                                  |
+| `ttlMs`       | No       | Time-to-live in milliseconds for cached group list responses. ([MCP TTL Spec](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching#time-to-live-ttl-field )). Defaults to `300000` (5 minutes).|
+| `cacheScope`  | No       | Cache visibility for group list responses (either `public` or `private`). ([MCP Cache Scope Spec](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching#cache-scope-field)). Defaults to `public`.|
 
 \* `name` is required for every named group. The single [default group](#the-default-group) omits it.
 
@@ -4115,6 +4117,8 @@ description: Administrative operations.
 tools:
   - create_user
   - list_users
+ttlMs: 3600000
+cacheScope: private
 ```
 
 ## The default group
@@ -4135,11 +4139,26 @@ At startup, Toolbox validates groups:
 - **Unique names.** A named group must have a unique name that satisfies the standard name rules (alphanumeric characters, underscores, and hyphens).
 - **One default group.** Declaring more than one nameless group is an error.
 - **Default group restrictions.** The default group may set only a `description`; declaring `tools`, `prompts`, or any other primitive list on it is an error.
-- **Group wins over a same-named toolset.** If a name is defined by both a `kind: toolset` and a `kind: group`, the group takes precedence and Toolbox logs a warning naming the shadowed toolset.
+- **No duplicate names across toolsets and groups.** A `kind: toolset` is parsed as a group, so defining the same name as both a `kind: toolset` and a `kind: group` is a duplicate-name error.
+- **Valid parameters.** If specified, `ttlMs` must be non-negative (>=0), and `cacheScope` must be either `public` or `private`.
 
 ## Relationship to toolsets
 
-Groups are a superset of toolsets: a toolset is equivalent to a tools-only group. Existing `kind: toolset` configurations continue to work unchanged — they are treated as groups with tools and no other primitives, so no migration is required. That said, we recommend migrating to a `kind: group` even for tools-only collections: a group lets you attach a `description` and scope prompts (and, in the future, other primitives) alongside tools. See [Toolsets](../toolsets/) for more.
+Groups are a superset of toolsets: a toolset is equivalent to a tools-only group. Existing `kind: toolset` configurations still load — Toolbox parses every toolset as a group — but that parity is not exact, so review the differences below before assuming a toolset behaves as it did:
+
+- A toolset has no `description` of its own, so one written on a `kind: toolset` is dropped rather than promoted, and Toolbox logs a warning. To give a collection a description, declare it as a `kind: group`.
+- Unrecognized fields on a toolset are rejected at startup instead of being silently ignored.
+- Declaring the same name as both a `kind: toolset` and a `kind: group` is a duplicate-name error; previously the group silently took precedence.
+
+We recommend migrating to a `kind: group` even for tools-only collections, so the configuration matches what Toolbox actually loads and can grow to scope prompts (and, in the future, other primitives) alongside tools. See [Toolsets](../toolsets/) for more.
+
+To convert existing toolsets to groups automatically, run the `migrate` command. It rewrites both nested `toolsets:` blocks and already-flat `kind: toolset` documents to `kind: group`:
+
+```bash
+toolbox migrate --config tools.yaml
+```
+
+Use `--dry-run` to preview the changes without writing them.
 
 
 
@@ -5671,6 +5690,28 @@ toolset = ToolboxToolset(
 
 Configure your OpenTelemetry `TracerProvider` and `MeterProvider` before creating the client. See the [toolbox-core OpenTelemetry documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#opentelemetry) for a full setup example.
 
+### Per-call Telemetry Attributes
+
+Use `TelemetryAttributes` to attach model, user, and agent metadata to each tool invocation:
+
+```python
+from toolbox_adk import ToolboxToolset
+from toolbox_core import TelemetryAttributes
+
+def get_telemetry_attributes(tool_context):
+    return TelemetryAttributes(
+        llm_model="gemini-3.6-flash",
+        user_id=tool_context.state.get("user_id"),
+        agent_id="agent-abc",
+    )
+
+toolset = ToolboxToolset(
+    server_url="http://127.0.0.1:5000",
+    telemetry_attributes=get_telemetry_attributes,
+)
+```
+
+`telemetry_attributes` also accepts a static `TelemetryAttributes` instance or an async callable. When wrapping a core tool directly, pass the same argument to `ToolboxTool`. See the [toolbox-core telemetry attributes documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#per-call-telemetry-attributes) for field details.
 
 
 
@@ -6816,6 +6857,29 @@ with ToolboxClient("http://127.0.0.1:5000", telemetry_enabled=True) as toolbox:
 
 Configure your OpenTelemetry `TracerProvider` and `MeterProvider` before creating the client. See the [toolbox-core OpenTelemetry documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#opentelemetry) for a full setup example.
 
+### Per-call Telemetry Attributes
+
+Use `TelemetryAttributes` to attach model, user, and agent metadata to tool invocations:
+
+```py
+from toolbox_core import TelemetryAttributes
+from toolbox_langchain import ToolboxClient
+
+attrs = TelemetryAttributes(
+    llm_model="gemini-3.6-flash",
+    user_id="user-123",
+    agent_id="agent-abc",
+)
+
+with ToolboxClient("http://127.0.0.1:5000") as toolbox:
+    tools = toolbox.load_toolset("my-toolset", telemetry_attributes=attrs)
+
+    tool = toolbox.load_tool("my-tool")
+    instrumented_tool = tool.add_telemetry_attributes(attrs)
+```
+
+You can pass `telemetry_attributes` to `load_tool()` or `load_toolset()`, or call `add_telemetry_attributes()` on a loaded tool. See the [toolbox-core telemetry attributes documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#per-call-telemetry-attributes) for field details.
+
 
 
 
@@ -7275,6 +7339,30 @@ with ToolboxClient("http://127.0.0.1:5000", telemetry_enabled=True) as toolbox:
 ```
 
 Configure your OpenTelemetry `TracerProvider` and `MeterProvider` before creating the client. See the [toolbox-core OpenTelemetry documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#opentelemetry) for a full setup example.
+
+### Per-call Telemetry Attributes
+
+Use `TelemetryAttributes` to attach model, user, and agent metadata to tool invocations:
+
+```py
+from toolbox_core import TelemetryAttributes
+from toolbox_llamaindex import ToolboxClient
+
+attrs = TelemetryAttributes(
+    llm_model="gemini-3.6-flash",
+    user_id="user-123",
+    agent_id="agent-abc",
+)
+
+with ToolboxClient("http://127.0.0.1:5000") as toolbox:
+    tools = toolbox.load_toolset("my-toolset", telemetry_attributes=attrs)
+
+    tool = toolbox.load_tool("my-tool")
+    instrumented_tool = tool.add_telemetry_attributes(attrs)
+```
+
+You can pass `telemetry_attributes` to `load_tool()` or `load_toolset()`, or call `add_telemetry_attributes()` on a loaded tool. See the [toolbox-core telemetry attributes documentation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#per-call-telemetry-attributes) for field details.
+
 
 
 
@@ -11049,23 +11137,23 @@ After you install Looker in the MCP Store, resources and tools from the server a
 
 {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -11555,23 +11643,23 @@ expose your developer assistant tools to a MySQL instance:
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -11885,23 +11973,23 @@ expose your developer assistant tools to a Neo4j instance:
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -12212,23 +12300,23 @@ to expose your developer assistant tools to an Oracle instance:
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -12561,23 +12649,23 @@ Omni](https://cloud.google.com/alloydb/omni/docs/overview).
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -12918,23 +13006,23 @@ instance:
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -13248,23 +13336,23 @@ to expose your developer assistant tools to a SQLite instance:
    <!-- {x-release-please-start-version} -->
    {{< tabpane persist=header >}}
 {{< tab header="linux/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/linux/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/linux/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/arm64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/arm64/toolbox
 {{< /tab >}}
 
 {{< tab header="darwin/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/darwin/amd64/toolbox
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/darwin/amd64/toolbox
 {{< /tab >}}
 
 {{< tab header="windows/amd64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/amd64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/amd64/toolbox.exe
 {{< /tab >}}
 
 {{< tab header="windows/arm64" lang="bash" >}}
-curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/windows/arm64/toolbox.exe
+curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/windows/arm64/toolbox.exe
 {{< /tab >}}
 {{< /tabpane >}}
     <!-- {x-release-please-end} -->
@@ -19813,6 +19901,52 @@ description: Create a new Bigtable logical view.
 
 
 ========================================================================
+## bigtable-create-materialized-view
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-create-materialized-view
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-create-materialized-view/
+**Description:** A "bigtable-create-materialized-view" tool is used to create a new materialized view on a Google Cloud Bigtable instance.
+
+
+
+## About
+
+A `bigtable-create-materialized-view` tool creates a new materialized view on a Google Cloud Bigtable instance.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `instance_id` | string | true | The ID of the instance. |
+| `materialized_view_id` | string | true | The ID of the materialized view. |
+| `query` | string | true | The materialized view query. |
+
+## Example
+
+```yaml
+kind: tool
+name: create_materialized_view
+type: bigtable-create-materialized-view
+source: my-bigtable-source
+description: Use this tool to create a materialized view.
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| type | string | true | Must be `bigtable-create-materialized-view`. |
+| source | string | true | Name of the source to execute on. |
+| description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
 ## bigtable-create-table
 ========================================================================
 **Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-create-table
@@ -19834,6 +19968,7 @@ Create a new Bigtable table.
 `bigtable-create-table` accepts the following parameters:
 
 - **`table_id`** (string): The ID of the table to create
+- **`column_family`** (string): Optional column family name to create with the table
 
 ## Example
 
@@ -19984,6 +20119,51 @@ description: Delete a Bigtable logical view.
 | **field** | **type** | **required** | **description** |
 |-----------|----------|--------------|-----------------|
 | type | string | true | Must be `bigtable-delete-logical-view`. |
+| source | string | true | Name of the source to execute on. |
+| description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## bigtable-delete-materialized-view
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-delete-materialized-view
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-delete-materialized-view/
+**Description:** A "bigtable-delete-materialized-view" tool is used to delete an existing materialized view from a Google Cloud Bigtable instance.
+
+
+
+## About
+
+A `bigtable-delete-materialized-view` tool deletes an existing materialized view from a Google Cloud Bigtable instance.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `instance_id` | string | true | The ID of the instance. |
+| `materialized_view_id` | string | true | The ID of the materialized view. |
+
+## Example
+
+```yaml
+kind: tool
+name: delete_materialized_view
+type: bigtable-delete-materialized-view
+source: my-bigtable-source
+description: Use this tool to delete a materialized view.
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| type | string | true | Must be `bigtable-delete-materialized-view`. |
 | source | string | true | Name of the source to execute on. |
 | description | string | false | Description of the tool that is passed to the LLM. |
 
@@ -20169,6 +20349,51 @@ description: Get details of a Bigtable logical view.
 
 
 ========================================================================
+## bigtable-get-materialized-view
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-get-materialized-view
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-get-materialized-view/
+**Description:** A "bigtable-get-materialized-view" tool is used to retrieve information about a materialized view on a Google Cloud Bigtable instance.
+
+
+
+## About
+
+A `bigtable-get-materialized-view` tool retrieves metadata and information about a materialized view on a Google Cloud Bigtable instance.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `instance_id` | string | true | The ID of the instance. |
+| `materialized_view_id` | string | true | The ID of the materialized view. |
+
+## Example
+
+```yaml
+kind: tool
+name: get_materialized_view
+type: bigtable-get-materialized-view
+source: my-bigtable-source
+description: Use this tool to get materialized view info.
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| type | string | true | Must be `bigtable-get-materialized-view`. |
+| source | string | true | Name of the source to execute on. |
+| description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
 ## bigtable-get-table
 ========================================================================
 **Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-get-table
@@ -20333,6 +20558,131 @@ description: List all Bigtable logical views in the instance.
 | type | string | true | Must be `bigtable-list-logical-views`. |
 | source | string | true | Name of the source to execute on. |
 | description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## bigtable-list-materialized-views
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-list-materialized-views
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-list-materialized-views/
+**Description:** A "bigtable-list-materialized-views" tool is used to list all materialized views on a Google Cloud Bigtable instance.
+
+
+
+## About
+
+A `bigtable-list-materialized-views` tool lists all materialized views on a Google Cloud Bigtable instance.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `instance_id` | string | true | The ID of the instance. |
+
+## Example
+
+```yaml
+kind: tool
+name: list_materialized_views
+type: bigtable-list-materialized-views
+source: my-bigtable-source
+description: Use this tool to list materialized views.
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| type | string | true | Must be `bigtable-list-materialized-views`. |
+| source | string | true | Name of the source to execute on. |
+| description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## bigtable-list-schemas
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-list-schemas
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-list-schemas/
+**Description:** The "bigtable-list-schemas" tool lists all Bigtable schemas, including table column families, logical views, and materialized views with dynamically resolved column schemas.
+
+
+
+## About
+
+The `bigtable-list-schemas` tool retrieves comprehensive schema information for all resources within a Google Cloud Bigtable instance. It provides Large Language Models (LLMs) with full visibility into:
+
+- **Tables:** Table names along with their configured column family definitions (`FamilyList`).
+- **Logical Views & Materialized Views:** View definitions (`LogicalViewID`, `MaterializedViewID`, and GoogleSQL `Query`) alongside dynamically resolved column schemas (`name` and `type`) extracted from the view query.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+`bigtable-list-schemas` accepts the following parameters:
+
+- **`limit`** (integer): Optional maximum number of tables to return (default: 20).
+
+## Example
+
+```yaml
+kind: tool
+name: bigtable_list_schemas
+type: bigtable-list-schemas
+source: my-bigtable-source
+description: List all Bigtable tables, column families, and SQL view column schemas.
+```
+
+## Output Format
+
+The tool returns a structured JSON payload containing `tables`, `logical_views`, and `materialized_views`:
+
+```json
+{
+  "tables": [
+    {
+      "table_name": "users",
+      "info": {
+        "FamilyList": ["profile", "activity"]
+      }
+    }
+  ],
+  "logical_views": [
+    {
+      "LogicalViewID": "active_users_view",
+      "Query": "SELECT _key, CAST(profile['name'] AS STRING) AS name FROM users",
+      "columns": [
+        {
+          "name": "_key",
+          "type": "BYTES"
+        },
+        {
+          "name": "name",
+          "type": "STRING"
+        }
+      ]
+    }
+  ],
+  "materialized_views": []
+}
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `type` | string | true | Must be `bigtable-list-schemas`. |
+| `source` | string | true | Name of the Bigtable source to execute on. |
+| `description` | string | false | Custom description of the tool passed to the LLM. |
 
 
 
@@ -20635,6 +20985,52 @@ description: Update an existing Bigtable logical view.
 | **field** | **type** | **required** | **description** |
 |-----------|----------|--------------|-----------------|
 | type | string | true | Must be `bigtable-update-logical-view`. |
+| source | string | true | Name of the source to execute on. |
+| description | string | false | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## bigtable-update-materialized-view
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Bigtable > Tools > bigtable-update-materialized-view
+**URL:** https://mcp-toolbox.dev/dev/integrations/bigtable/tools/bigtable-update-materialized-view/
+**Description:** A "bigtable-update-materialized-view" tool is used to update an existing materialized view on a Google Cloud Bigtable instance.
+
+
+
+## About
+
+A `bigtable-update-materialized-view` tool updates an existing materialized view on a Google Cloud Bigtable instance.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| `instance_id` | string | true | The ID of the instance. |
+| `materialized_view_id` | string | true | The ID of the materialized view. |
+| `query` | string | true | The updated materialized view query. |
+
+## Example
+
+```yaml
+kind: tool
+name: update_materialized_view
+type: bigtable-update-materialized-view
+source: my-bigtable-source
+description: Use this tool to update a materialized view.
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+|-----------|----------|--------------|-----------------|
+| type | string | true | Must be `bigtable-update-materialized-view`. |
 | source | string | true | Name of the source to execute on. |
 | description | string | false | Description of the tool that is passed to the LLM. |
 
@@ -22763,21 +23159,37 @@ description: |
 ========================================================================
 **Hierarchy:** MCP Toolbox for Databases > Integrations > Cloud Monitoring > Prebuilt Configs > AlloyDB Postgres Observability
 **URL:** https://mcp-toolbox.dev/dev/integrations/cloudmonitoring/prebuilt-configs/alloydb-postgres-observability/
-**Description:** Details of the AlloyDB Postgres Observability prebuilt configuration.
+**Description:** Details of the AlloyDB Postgres Observability prebuilt configuration combining Cloud Monitoring and Database Insights.
 
 
 ## AlloyDB Postgres Observability
 
 *   `--prebuilt` value: `alloydb-postgres-observability`
 *   **Permissions:**
-    *   **Monitoring Viewer** (`roles/monitoring.viewer`) is required on the
-        project to view monitoring data.
+    *   **Monitoring Viewer** (`roles/monitoring.viewer`) is required on the project to view system and query time-series metrics.
+    *   **Database Insights Viewer** (`roles/databaseinsights.viewer`) is required to retrieve aggregated query statistics, wait events, historical trends, and index advisor recommendations.
 *   **Tools:**
-    *   `get_system_metrics`: Fetches system level cloud monitoring data
-        (timeseries metrics) for an AlloyDB instance using a PromQL query.
-    *   `get_query_metrics`: Fetches query level cloud monitoring data
-        (timeseries metrics) for queries running in an AlloyDB instance using a
-        PromQL query.
+    *   `get_system_metrics`: Fetches system level cloud monitoring data (timeseries metrics) for an AlloyDB instance using a PromQL query.
+    *   `get_query_metrics`: Fetches query level cloud monitoring data (timeseries metrics) for queries running in an AlloyDB instance using a PromQL query.
+    *   `get_advanced_aggregated_query_stats`: Fetches aggregated query execution statistics for a requested AlloyDB instance within a specified time period. Supports filtering by database name, database user, and a specific query ID, as well as pagination. Returns statistics including query ID, database name, total execution time (`sum(execution_time)`), average execution time (`avg(execution_time)`), total execution count (`sum(count)`), total wait time (`sum(wait_time)`), and normalized query text. Requires Advanced Query Insights to be enabled.
+    *   `get_advanced_aggregated_wait_event_stats`: Fetches aggregated wait event statistics to identify performance bottlenecks for a requested AlloyDB instance within a specified time period. Supports filtering by database name, database user, and a specific query ID, selecting the aggregation level (by wait class or granular wait event), as well as pagination. Returns statistics including wait class or event name, total time spent (`sum(time_spent)`), average time spent (`avg(time_spent)`), and total wait count (`sum(count)`). Requires Advanced Query Insights to be enabled.
+    *   `get_advanced_time_series_query_stats`: Fetches time-series history of query execution statistics to analyze trends and spikes for a requested AlloyDB instance within a specified time period. Supports filtering by database name, database user, and a specific query ID. Returns time-series data including rates of execution time (`rate(execution_time)`) and wait time (`rate(wait_time)`). Requires Advanced Query Insights to be enabled.
+    *   `get_advanced_time_series_wait_event_stats`: Fetches time-series history of wait event statistics to analyze contention trends for a requested AlloyDB instance within a specified time period. Supports filtering by database name, database user, and a specific query ID, as well as selecting the aggregation level (by wait class or granular wait event). Returns time-series data including rate of time spent (`rate(time_spent)`) grouped by wait class or event. Requires Advanced Query Insights to be enabled.
+    *   `get_index_recommendations`: Fetches index advisor suggestions to optimize performance for a requested AlloyDB instance. Supports requesting recommendations for specific databases and a list of query IDs. Returns index recommendations including SQL commands (`CREATE INDEX`), target schema, relation, and columns, estimated storage size, and predicted query performance improvements (current vs estimated execution duration).
+*   **Available Toolsets (Filtered Groups):**
+    *   `alloydb_postgres_cloud_monitoring_tools`: Exposes only the 2 Cloud Monitoring metrics tools (`get_system_metrics`, `get_query_metrics`).
+    *   `alloydb_postgres_database_insights_tools`: Exposes only the 5 Database Insights diagnostic tools (`get_advanced_...` and `get_index_recommendations`).
+    *   `alloydb_postgres_observability_tools`: Exposes all 7 observability tools.
+
+## Additional Resources
+
+These tools are also available via the remote Google Cloud OneMCP server for AlloyDB. For detailed reference documentation on remote OneMCP integration and index advisor capabilities, see:
+
+*   [Monitor AlloyDB using the Database Insights MCP server](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+*   [AlloyDB Database Insights MCP Reference](https://cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp)
+
+
+
 
 
 
@@ -23710,6 +24122,130 @@ description: "Checks if a Cloud SQL PostgreSQL instance is ready for a major ver
 | project                 |  string  |     true     | The project ID containing the instance.                                         |
 | instance                    |  string  |     true     | The name of the Cloud SQL instance to check.                                    |
 | targetDatabaseVersion   |  string  |     false     | The target PostgreSQL major version for the upgrade (e.g., `POSTGRES_18`).  If not specified, defaults to the PostgreSQL 18. |
+
+
+
+
+========================================================================
+## cloud-sql-connect-gce
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Cloud SQL Admin > Tools > cloud-sql-connect-gce
+**URL:** https://mcp-toolbox.dev/dev/integrations/cloud-sql-admin/tools/cloudsqlconnectgce/
+**Description:** Connect a Cloud SQL instance (PostgreSQL, MySQL, or SQL Server) to a Google Compute Engine VM. The engine is auto-detected from the instance.
+
+
+## About
+
+The `cloud-sql-connect-gce` tool helps an agent (or user) wire up any Cloud
+SQL instance to a Google Compute Engine VM. The engine (PostgreSQL, MySQL,
+or SQL Server) is auto-detected from the `DatabaseVersion` returned by the
+Cloud SQL Admin API, so the caller does not have to specify it.
+
+The tool:
+
+1. Reads the Cloud SQL instance via the `cloud-sql-admin` source and the
+   target GCE VM via the Compute Engine API (auto-discovering the zone
+   with an `AggregatedList` filter when `vm_zone` is omitted).
+2. Validates network reachability between the instance and the VM
+   (same-VPC, private-IP, public-IP posture, SSL requirements).
+3. Recommends a primary connection method (Cloud SQL Auth Proxy, Cloud SQL
+   Connector library, or Direct Private IP) plus ranked alternatives.
+4. Returns ready-to-paste setup steps, environment/DSN/JDBC snippets, and,
+   when `language` is set, a Python / Node.js / Java / Go code snippet
+   with floor-pinned dependency versions.
+
+### Identity boundary
+
+Both the Cloud SQL Admin call and the Compute Engine call honor the
+caller's OAuth access token when the `cloud-sql-admin` source is
+configured with `useClientOAuth: true`, so IAM decisions on both APIs are
+evaluated as the caller. When no caller token is passed, the Compute
+Engine call falls back to Application Default Credentials.
+
+### Input validation
+
+Caller-supplied identifiers that flow into shell commands, DSN/JDBC
+templates, or the GCE list filter (`instance_connection_name`, `vm_name`,
+`vm_zone`, `database_name`) are validated against GCP naming rules via
+regex whitelists before use.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+- The identity used for the tool call (caller OAuth or the Toolbox
+  service account, per source configuration) needs `roles/cloudsql.client`
+  on the Cloud SQL instance and `roles/compute.viewer` on the project.
+- The Cloud SQL Admin API (`sqladmin.googleapis.com`) and Compute Engine
+  API (`compute.googleapis.com`) must be enabled.
+
+## Parameters
+
+| **parameter**            | **type** | **required** | **description**                                                                                                                          |
+| ------------------------ | :------: | :----------: | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| instance_connection_name |  string  |     true     | Cloud SQL instance connection name in the format `project:region:instance`.                                                              |
+| vm_name                  |  string  |     true     | Name of the GCE VM instance to connect from.                                                                                             |
+| vm_zone                  |  string  |    false     | Zone of the VM. If omitted, the tool searches all zones in the project via an aggregated list filter.                                    |
+| database_name            |  string  |    false     | Database name to connect to. Defaults to the engine's conventional default: `postgres` (Postgres), `mysql` (MySQL), or `master` (MSSQL). |
+| language                 |  string  |    false     | Programming language for a code snippet: `python`, `nodejs`, `java`, or `go`. Omit to skip snippet output.                               |
+
+## Example
+
+```yaml
+kind: source
+name: my-cloud-sql-admin-source
+type: cloud-sql-admin
+---
+kind: tool
+name: connect_to_gce
+type: cloud-sql-connect-gce
+source: my-cloud-sql-admin-source
+description: Help me connect a Cloud SQL instance to a GCE VM.
+```
+
+## Output Format
+
+The tool returns a JSON object containing:
+
+- `instanceConnectionName`, `project`, `region`
+- `databaseType` (`postgres`, `mysql`, or `sqlserver`) and `databaseVersion`
+  (the raw `DatabaseVersion` string from the Cloud SQL Admin API)
+- `computeType` (`gce`), `computeResource` (the VM name), `computeLocation`
+  (the resolved zone)
+- `validation` — checks performed and their status
+- `recommendedMethod` and `alternativeMethods` — one of `auth_proxy`,
+  `connector`, or `direct_private_ip`, with rationale and requirements
+  (SQL Server prefers `auth_proxy` since the Connector library covers
+  Postgres and MySQL only)
+- `connectionStrings` — host/port/DSN/JDBC templates (credential
+  placeholders are `USER` / `PASS`)
+- `environmentConfig` — env vars and, where relevant, the Auth Proxy launch
+  command
+- `setupSteps` — ordered actions the user needs to take
+- `codeSnippet` — populated only when `language` was set; carries a
+  floor-pinned `dependencies` list and an install-command note derived
+  from it (`pip install ...`, `npm install ...`, `go get ...`)
+- `requiredIamRoles`, `requiredApis`
+
+### Dependencies contract
+
+The `codeSnippet.dependencies` field returns each library with a floor
+pin (e.g., `sqlalchemy>=2.0`, `pg@^8.11`, `com.google.cloud.sql:...:1.15.0`)
+representing the minimum version the tool has been tested against. Newer
+minor releases should work. For production use, pin exact versions in
+your project's package manifest.
+
+## Reference
+
+### Tool Configuration
+
+| **field**   | **type** | **required** | **description**                                  |
+| ----------- | :------: | :----------: | ------------------------------------------------ |
+| type        |  string  |     true     | Must be `cloud-sql-connect-gce`.                 |
+| source      |  string  |     true     | The name of the `cloud-sql-admin` source to use. |
+| description |  string  |    false     | Overrides the default tool description.          |
 
 
 
@@ -28223,6 +28759,698 @@ The tool returns a structured JSON object containing the following fields:
 | type        |  string  |     true     | Must be "datalineage-search-lineage".              |
 | source      |  string  |     true     | Name of the source the tool should execute on.     |
 | description |  string  |     true     | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## Database Insights
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/
+**Description:** None
+
+
+
+
+
+========================================================================
+## Database Insights Source
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Database Insights Source
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/source/
+**Description:** The "databaseinsights" source provides a client for the Google Cloud Database Insights API.
+
+
+
+## About
+
+The `databaseinsights` source provides a client to interact with the Google Cloud Database Insights API (`databaseinsights.googleapis.com`). This source supports the Advanced Query Insights tools that are available via the remote [Database Insights MCP Server](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp), allowing tools to retrieve query performance statistics, wait event metrics, time-series trends, and index recommendations for Google Cloud databases like AlloyDB.
+
+Authentication is handled via Application Default Credentials (ADC) using OAuth 2.0 access tokens.
+
+## Available Tools
+
+{{< list-tools >}}
+
+## Requirements
+
+### API Enablement
+
+Enable the required Google Cloud APIs on your target project:
+*   **AlloyDB API** (`alloydb.googleapis.com`)
+*   **Database Insights API** (`databaseinsights.googleapis.com`)
+
+**Roles required to enable APIs:**
+To enable APIs, you need the `serviceusage.services.enable` permission. If you created the project, you likely already have this permission through the **Owner** role (`roles/owner`). Otherwise, you can obtain this permission through the **Service Usage Admin** role (`roles/serviceusage.serviceUsageAdmin`).
+
+### IAM Roles & Permissions
+
+To query performance metrics, wait events, and index recommendations, grant the appropriate IAM roles on the target project or database location:
+*   **View Cloud Monitoring data:** Monitoring Viewer (`roles/monitoring.viewer`)
+*   **View Database Insights data:** Database Insights Viewer (`roles/databaseinsights.viewer`)
+
+**Fine-grained Database Insights permissions:**
+*   **Get advanced aggregated query statistics:** `databaseinsights.queryStats.fetch`
+*   **Get advanced time series query statistics:** `databaseinsights.queryTimeSeries.fetch`
+*   **Get advanced aggregated wait event statistics:** `databaseinsights.waitEventStats.fetch`
+*   **Get advanced time series wait event statistics:** `databaseinsights.waitEventTimeSeries.fetch`
+*   **Get index recommendations:** `databaseinsights.indexRecommendations.batchQuery`, `databaseinsights.recommendations.query`, `databaseinsights.resourceRecommendations.query`
+
+## Example
+
+```yaml
+kind: source
+name: database-insights-source
+type: databaseinsights
+---
+kind: source
+name: custom-project-database-insights
+type: databaseinsights
+project: my-quota-project
+```
+
+## Reference
+
+| **field** | **type** | **required** | **description** |
+| -------------- | :------: | :----------: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| type | string | true | Must be "databaseinsights". |
+| project | string | false | The Google Cloud project ID to use as a fallback billing/quota project for API calls if not extracted from the resource path. |
+| endpoint | string | false | Override API endpoint URL (e.g., for staging or testing environments). Defaults to `https://databaseinsights.googleapis.com`. |
+
+## Additional Resources
+
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+*   [AlloyDB Database Insights MCP Reference](https://cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp)
+
+
+
+
+
+========================================================================
+## Tools
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/
+**Description:** None
+
+
+
+
+
+========================================================================
+## databaseinsights-get-advanced-aggregated-query-stats
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools > databaseinsights-get-advanced-aggregated-query-stats
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/databaseinsights-get-advanced-aggregated-query-stats/
+**Description:** Fetches aggregated query performance statistics (latency, execution count, wait time) for AlloyDB instances.
+
+
+
+## About
+
+The `databaseinsights-get-advanced-aggregated-query-stats` tool fetches aggregated performance metrics for queries executed on AlloyDB instances with Advanced Query Insights enabled. It ranks queries by total execution time (`sum(execution_time) desc`) to help identify top resource-consuming queries.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+### IAM Permissions
+
+- `databaseinsights.queryStats.fetch` on the target location/project, which is granted by:
+  - **Database Insights Viewer** (`roles/databaseinsights.viewer`)
+  - **Monitoring Viewer** (`roles/monitoring.viewer`)
+
+## Parameters
+
+### `parent` (String, Required)
+
+Project and location in the format `projects/{project_id}/locations/{location}`.
+
+### `full_resource_name` (String, Required)
+
+The full resource identifier for the database instance (e.g., `//alloydb.googleapis.com/projects/{project_id}/locations/{location}/clusters/{cluster_id}/instances/{instance_id}`).
+
+### `start_time` (String, Optional)
+
+Beginning of the time interval in RFC3339 format.
+
+### `end_time` (String, Optional)
+
+End of the time interval in RFC3339 format.
+
+### `database` (String, Optional)
+
+Filter stats to a specific database.
+
+### `username` (String, Optional)
+
+Filter stats to a specific database user.
+
+### `query_id` (String, Optional)
+
+Fetch stats for a single specific query hash.
+
+### `page_size` (Integer, Optional)
+
+Maximum number of query stats to return (Default: `20`).
+
+### `page_token` (String, Optional)
+
+Token for fetching subsequent pages of results.
+
+## Example
+
+**YAML Configuration:**
+```yaml
+kind: tool
+name: get_aggregated_query_stats
+type: databaseinsights-get-advanced-aggregated-query-stats
+source: database-insights-source
+```
+
+**Sample CLI Invocation:**
+```bash
+./toolbox invoke get_advanced_aggregated_query_stats \
+  --prebuilt alloydb-postgres-observability \
+  '{"parent":"projects/PROJECT_ID/locations/REGION","full_resource_name":"//alloydb.googleapis.com/projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID/instances/INSTANCE_ID","page_size":10}'
+```
+
+## Output Format
+
+Returns a structured JSON object containing `results` (an array of row values) and `metadata` (field schema descriptors):
+
+```json
+{
+  "results": [
+    [
+      "1106633582131931382",
+      "postgres",
+      40324,
+      20162,
+      2,
+      0,
+      "SELECT BATCH_ID, ... FROM information_schema.schemata ..."
+    ]
+  ],
+  "metadata": {
+    "fields": [
+      {"name": "query_id", "type": "STRING"},
+      {"name": "database", "type": "STRING"},
+      {"name": "sum(execution_time)", "type": "DOUBLE"},
+      {"name": "avg(execution_time)", "type": "DOUBLE"},
+      {"name": "sum(count)", "type": "DOUBLE"},
+      {"name": "sum(wait_time)", "type": "DOUBLE"},
+      {"name": "min(normalized_query_text)", "type": "STRING"}
+    ]
+  }
+}
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+| :---------- | :------: | :----------: | :------------------------------------------------- |
+| type        |  string  |     true     | Must be "databaseinsights-get-advanced-aggregated-query-stats". |
+| source      |  string  |     true     | Name of the source the tool should execute on.     |
+| description |  string  |    false     | Optional description override.                     |
+
+## Additional Resources
+
+*   [OneMCP Reference: get_advanced_aggregated_query_stats](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp/tools_list/get_advanced_aggregated_query_stats)
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+
+
+
+
+
+========================================================================
+## databaseinsights-get-advanced-aggregated-wait-event-stats
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools > databaseinsights-get-advanced-aggregated-wait-event-stats
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/databaseinsights-get-advanced-aggregated-wait-event-stats/
+**Description:** Fetches aggregated wait event statistics for AlloyDB instances to identify performance bottlenecks.
+
+
+
+## About
+
+The `databaseinsights-get-advanced-aggregated-wait-event-stats` tool retrieves aggregated wait event metrics (IO, Lock, CPU contention) to help diagnose database performance bottlenecks.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+### IAM Permissions
+
+- `databaseinsights.waitEventStats.fetch` on the target location/project, which is granted by:
+  - **Database Insights Viewer** (`roles/databaseinsights.viewer`)
+  - **Monitoring Viewer** (`roles/monitoring.viewer`)
+
+## Parameters
+
+### `parent` (String, Required)
+
+Project and location in the format `projects/{project_id}/locations/{location}`.
+
+### `full_resource_name` (String, Required)
+
+The full resource identifier for the database instance (e.g., `//alloydb.googleapis.com/projects/{project_id}/locations/{location}/clusters/{cluster_id}/instances/{instance_id}`).
+
+### `start_time` (String, Optional)
+
+Beginning of the time interval in RFC3339 format.
+
+### `end_time` (String, Optional)
+
+End of the time interval in RFC3339 format.
+
+### `database` (String, Optional)
+
+Filter wait event stats to a specific database.
+
+### `username` (String, Optional)
+
+Filter wait event stats to a specific database user.
+
+### `query_id` (String, Optional)
+
+Breakdown wait events for a specific query hash.
+
+### `page_size` (Integer, Optional)
+
+Maximum number of results to return (Default: `20`).
+
+### `page_token` (String, Optional)
+
+Token for fetching subsequent pages of results.
+
+### `view` (String, Optional)
+
+Aggregation level (`WAIT_CLASS` or `WAIT_EVENT`). Defaults to `WAIT_CLASS`.
+
+## Example
+
+**YAML Configuration:**
+```yaml
+kind: tool
+name: get_aggregated_wait_event_stats
+type: databaseinsights-get-advanced-aggregated-wait-event-stats
+source: database-insights-source
+```
+
+**Sample CLI Invocation:**
+```bash
+./toolbox invoke get_advanced_aggregated_wait_event_stats \
+  --prebuilt alloydb-postgres-observability \
+  '{"parent":"projects/PROJECT_ID/locations/REGION","full_resource_name":"//alloydb.googleapis.com/projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID/instances/INSTANCE_ID","view":"WAIT_CLASS","page_size":10}'
+```
+
+## Output Format
+
+Returns a structured JSON object containing `results` (wait event categories and metrics) and `metadata` (schema columns):
+
+```json
+{
+  "results": [],
+  "metadata": {
+    "fields": [
+      {"name": "wait_class", "type": "STRING"},
+      {"name": "sum(time_spent)", "type": "DOUBLE"},
+      {"name": "avg(time_spent)", "type": "DOUBLE"},
+      {"name": "sum(count)", "type": "DOUBLE"}
+    ]
+  }
+}
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+| :---------- | :------: | :----------: | :------------------------------------------------- |
+| type        |  string  |     true     | Must be "databaseinsights-get-advanced-aggregated-wait-event-stats". |
+| source      |  string  |     true     | Name of the source the tool should execute on.     |
+| description |  string  |    false     | Optional description override.                     |
+
+## Additional Resources
+
+*   [OneMCP Reference: get_advanced_aggregated_wait_event_stats](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp/tools_list/get_advanced_aggregated_wait_event_stats)
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+
+
+
+
+
+========================================================================
+## databaseinsights-get-advanced-time-series-query-stats
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools > databaseinsights-get-advanced-time-series-query-stats
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/databaseinsights-get-advanced-time-series-query-stats/
+**Description:** Fetches time-series performance trends for queries executed on AlloyDB instances.
+
+
+
+## About
+
+The `databaseinsights-get-advanced-time-series-query-stats` tool retrieves historical time-series performance metrics for AlloyDB queries to help analyze latency trends over time and identify performance spikes.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+### IAM Permissions
+
+- `databaseinsights.queryTimeSeries.fetch` on the target location/project, which is granted by:
+  - **Database Insights Viewer** (`roles/databaseinsights.viewer`)
+  - **Monitoring Viewer** (`roles/monitoring.viewer`)
+
+## Parameters
+
+### `parent` (String, Required)
+
+Project and location in the format `projects/{project_id}/locations/{location}`.
+
+### `full_resource_name` (String, Required)
+
+The full resource identifier for the database instance (e.g., `//alloydb.googleapis.com/projects/{project_id}/locations/{location}/clusters/{cluster_id}/instances/{instance_id}`).
+
+### `start_time` (String, Optional)
+
+Beginning of the time interval in RFC3339 format.
+
+### `end_time` (String, Optional)
+
+End of the time interval in RFC3339 format.
+
+### `database` (String, Optional)
+
+Filter results to a specific database.
+
+### `username` (String, Optional)
+
+Filter results to a specific database user.
+
+### `query_id` (String, Optional)
+
+Fetch history for a single specific query hash.
+
+## Example
+
+**YAML Configuration:**
+```yaml
+kind: tool
+name: get_query_time_series
+type: databaseinsights-get-advanced-time-series-query-stats
+source: database-insights-source
+```
+
+**Sample CLI Invocation:**
+```bash
+./toolbox invoke get_advanced_time_series_query_stats \
+  --prebuilt alloydb-postgres-observability \
+  '{"parent":"projects/PROJECT_ID/locations/REGION","full_resource_name":"//alloydb.googleapis.com/projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID/instances/INSTANCE_ID"}'
+```
+
+## Output Format
+
+Returns a structured JSON object containing a `timeseries` array of interval data points and schema `metadata`:
+
+```json
+{
+  "timeseries": [
+    {
+      "groupbyFieldValues": [""],
+      "values": [
+        {
+          "interval": {
+            "endTime": "2026-08-11T18:46:30Z"
+          },
+          "value": [796.93, 0]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "fields": [
+      {"name": "rate(execution_time)", "type": "DOUBLE"},
+      {"name": "rate(wait_time)", "type": "DOUBLE"}
+    ]
+  }
+}
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+| :---------- | :------: | :----------: | :------------------------------------------------- |
+| type        |  string  |     true     | Must be "databaseinsights-get-advanced-time-series-query-stats". |
+| source      |  string  |     true     | Name of the source the tool should execute on.     |
+| description |  string  |    false     | Optional description override.                     |
+
+## Additional Resources
+
+*   [OneMCP Reference: get_advanced_time_series_query_stats](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp/tools_list/get_advanced_time_series_query_stats)
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+
+
+
+
+
+========================================================================
+## databaseinsights-get-advanced-time-series-wait-event-stats
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools > databaseinsights-get-advanced-time-series-wait-event-stats
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/databaseinsights-get-advanced-time-series-wait-event-stats/
+**Description:** Fetches time-series wait event statistics for AlloyDB instances over time.
+
+
+
+## About
+
+The `databaseinsights-get-advanced-time-series-wait-event-stats` tool retrieves time-series wait event metrics (IO, Lock, CPU) for an AlloyDB instance over a specified period to visualize how contention evolves.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+### IAM Permissions
+
+- `databaseinsights.waitEventTimeSeries.fetch` on the target location/project, which is granted by:
+  - **Database Insights Viewer** (`roles/databaseinsights.viewer`)
+  - **Monitoring Viewer** (`roles/monitoring.viewer`)
+
+## Parameters
+
+### `parent` (String, Required)
+
+Project and location in the format `projects/{project_id}/locations/{location}`.
+
+### `full_resource_name` (String, Required)
+
+The full resource identifier for the database instance (e.g., `//alloydb.googleapis.com/projects/{project_id}/locations/{location}/clusters/{cluster_id}/instances/{instance_id}`).
+
+### `start_time` (String, Optional)
+
+Beginning of the time interval in RFC3339 format.
+
+### `end_time` (String, Optional)
+
+End of the time interval in RFC3339 format.
+
+### `database` (String, Optional)
+
+Filter wait event history to a specific database.
+
+### `username` (String, Optional)
+
+Filter wait event history to a specific database user.
+
+### `query_id` (String, Optional)
+
+Breakdown wait events over time for a specific query hash.
+
+### `view` (String, Optional)
+
+Aggregation level (`WAIT_CLASS` or `WAIT_EVENT`). Defaults to `WAIT_CLASS`.
+
+## Example
+
+**YAML Configuration:**
+```yaml
+kind: tool
+name: get_wait_event_time_series
+type: databaseinsights-get-advanced-time-series-wait-event-stats
+source: database-insights-source
+```
+
+**Sample CLI Invocation:**
+```bash
+./toolbox invoke get_advanced_time_series_wait_event_stats \
+  --prebuilt alloydb-postgres-observability \
+  '{"parent":"projects/PROJECT_ID/locations/REGION","full_resource_name":"//alloydb.googleapis.com/projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID/instances/INSTANCE_ID","view":"WAIT_CLASS"}'
+```
+
+## Output Format
+
+Returns a structured JSON object containing a `timeseries` dataset of time-series wait event points and `metadata`:
+
+```json
+{
+  "timeseries": [
+    {
+      "groupbyFieldValues": [""]
+    }
+  ],
+  "metadata": {
+    "fields": [
+      {"name": "rate(time_spent)", "type": "DOUBLE"}
+    ]
+  }
+}
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+| :---------- | :------: | :----------: | :------------------------------------------------- |
+| type        |  string  |     true     | Must be "databaseinsights-get-advanced-time-series-wait-event-stats". |
+| source      |  string  |     true     | Name of the source the tool should execute on.     |
+| description |  string  |    false     | Optional description override.                     |
+
+## Additional Resources
+
+*   [OneMCP Reference: get_advanced_time_series_wait_event_stats](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp/tools_list/get_advanced_time_series_wait_event_stats)
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+
+
+
+
+
+========================================================================
+## databaseinsights-get-index-recommendations
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Database Insights > Tools > databaseinsights-get-index-recommendations
+**URL:** https://mcp-toolbox.dev/dev/integrations/databaseinsights/tools/databaseinsights-get-index-recommendations/
+**Description:** Fetches index recommendations for specified query IDs across databases on AlloyDB instances.
+
+
+
+## About
+
+The `databaseinsights-get-index-recommendations` tool retrieves index advisor recommendations for specified query IDs across databases. It identifies missing indexes, provides exact SQL creation commands, and calculates estimated performance gains.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Requirements
+
+### IAM Permissions
+
+- `databaseinsights.indexRecommendations.batchQuery`, `databaseinsights.recommendations.query`, and `databaseinsights.resourceRecommendations.query` on the target location/project, which are granted by:
+  - **Database Insights Viewer** (`roles/databaseinsights.viewer`)
+  - **Monitoring Viewer** (`roles/monitoring.viewer`)
+
+## Parameters
+
+### `parent` (String, Required)
+
+Project and location in the format `projects/{project_id}/locations/{location}`.
+
+### `full_resource_name` (String, Required)
+
+The full resource identifier for the database instance (e.g., `//alloydb.googleapis.com/projects/{project_id}/locations/{location}/clusters/{cluster_id}/instances/{instance_id}`).
+
+### `database_query_ids` (Array of Objects, Optional)
+
+A list of objects specifying database names and target query IDs (e.g., `[{"database": "postgres", "query_ids": ["1106633582131931382"]}]`).
+
+## Example
+
+**YAML Configuration:**
+```yaml
+kind: tool
+name: get_index_recommendations
+type: databaseinsights-get-index-recommendations
+source: database-insights-source
+```
+
+**Sample CLI Invocation:**
+```bash
+./toolbox invoke get_index_recommendations \
+  --prebuilt alloydb-postgres-observability \
+  '{"parent":"projects/PROJECT_ID/locations/REGION","full_resource_name":"//alloydb.googleapis.com/projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID/instances/INSTANCE_ID","database_query_ids":[{"database":"postgres","query_ids":["1106633582131931382"]}]}'
+```
+
+## Output Format
+
+Returns index advisor recommendations (`sql_command`, `schema`, `relation`, `columns`, `estimated_storage_size_bytes`) and predicted query performance improvements:
+
+```json
+{
+  "full_resource_name": "//alloydb.googleapis.com/clusters/mg-obs/instances/mg-obs-primary",
+  "database_index_recommendations": [
+    {
+      "database": "postgres",
+      "index_recommendations": [
+        {
+          "sql_command": "CREATE INDEX ON \"public\".\"orders\"(\"o_orderdate\")",
+          "schema": "\"public\"",
+          "relation": "\"orders\"",
+          "columns": [
+            "\"o_orderdate\""
+          ],
+          "estimated_storage_size_bytes": "26124288",
+          "impacted_query_ids": [],
+          "impacted_queries_count": 2
+        }
+      ],
+      "recommendation_time": {
+        "seconds": "1773214452"
+      },
+      "query_improvements": [
+        {
+          "key": "-9180744549948249982",
+          "value": {
+            "query_id": "-9180744549948249982",
+            "index_recommendation_ids": [
+              "0"
+            ],
+            "current_total_execution_duration": {
+              "nanos": 25125664
+            },
+            "estimated_new_total_execution_duration": {
+              "nanos": 17142
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+| :---------- | :------: | :----------: | :------------------------------------------------- |
+| type        |  string  |     true     | Must be "databaseinsights-get-index-recommendations". |
+| source      |  string  |     true     | Name of the source the tool should execute on.     |
+| description |  string  |    false     | Optional description override.                     |
+
+## Additional Resources
+
+*   [OneMCP Reference: get_index_recommendations](https://docs.cloud.google.com/alloydb/docs/reference/mcp/databaseinsights/mcp/tools_list/get_index_recommendations)
+*   [Use Database Insights with Model Context Protocol (MCP)](https://cloud.google.com/alloydb/docs/ai/use-database-insights-mcp)
+
 
 
 
@@ -35069,6 +36297,52 @@ description: |
 
 
 ========================================================================
+## looker-create-dashboard-layout
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-create-dashboard-layout
+**URL:** https://mcp-toolbox.dev/dev/integrations/looker/tools/looker-create-dashboard-layout/
+**Description:** "looker-create-dashboard-layout" creates a new dashboard layout (tab).
+
+
+
+## About
+
+The `looker-create-dashboard-layout` tool creates a new dashboard layout, which typically represents a tab in modern Looker dashboards.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Example
+
+```yaml
+kind: tool
+name: create_dashboard_layout
+type: looker-create-dashboard-layout
+source: looker-source
+description: |
+  This tool creates a new dashboard layout, which typically represents a tab
+  in modern Looker dashboards.
+
+  Parameters:
+  - dashboard_id (required): The ID of the dashboard.
+  - label (required): The label (title) of the new tab.
+  - type (optional): The type of layout (defaults to 'newspaper').
+  - active (optional): Whether to make this layout active.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+|:------------|:--------:|:------------:|----------------------------------------------------|
+| type        | string   | true         | Must be "looker-create-dashboard-layout".          |
+| source      | string   | true         | Name of the Looker source.                         |
+| description | string   | true         | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
 ## looker-create-project-directory
 ========================================================================
 **Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-create-project-directory
@@ -35731,6 +37005,50 @@ description: |
 | type        |  string  |     true     | Must be "looker-get-connections".                  |
 | source      |  string  |     true     | Name of the source Looker instance.                |
 | description |  string  |     true     | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## looker-get-dashboard
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-get-dashboard
+**URL:** https://mcp-toolbox.dev/dev/integrations/looker/tools/looker-get-dashboard/
+**Description:** "looker-get-dashboard" retrieves the JSON design of a Looker dashboard.
+
+
+
+## About
+
+The `looker-get-dashboard` tool retrieves the JSON design of a Looker dashboard by its ID. The output is trimmed to essential fields, excluding alerts and scheduled plans, making it suitable for replicating or analyzing the dashboard structure.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Example
+
+```yaml
+kind: tool
+name: get_dashboard
+type: looker-get-dashboard
+source: looker-source
+description: |
+  This tool retrieves the JSON design of a Looker dashboard by its ID.
+  The output is trimmed to essential fields, excluding alerts and scheduled plans,
+  making it suitable for replicating or analyzing the dashboard structure.
+
+  Parameters:
+  - dashboard_id (required): The unique identifier of the dashboard.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+|:------------|:--------:|:------------:|----------------------------------------------------|
+| type        | string   | true         | Must be "looker-get-dashboard".                    |
+| source      | string   | true         | Name of the Looker source.                         |
+| description | string   | true         | Description of the tool that is passed to the LLM. |
 
 
 
@@ -36976,10 +38294,15 @@ description: |
 
   Optional Parameters:
   - pivots: A list of fields to pivot the results by. These fields must also be included in the `fields` list.
-  - filters: A map of filter expressions, e.g., `{"view.field": "value", "view.date": "7 days"}`.
-    - Do not quote field names.
+  - filters: A map of filter expressions, e.g., `{"view_name.field_name": "value", "view_name.date": "7 days"}`.
+    - Each key must be a fully-scoped `view_name.field_name`, copied verbatim from
+      `get_dimensions`, `get_measures`, `get_filters`, or `get_parameters`. The view
+      prefix and the dot are required.
+    - Each value is a Looker filter expression. Pass values bare: do not wrap them in
+      extra quote characters. For LookML `parameter` fields, use the raw allowed_value
+      (e.g. `first_touch`, not `"first_touch"`).
     - Use `not null` instead of `-NULL`.
-    - If a value contains a comma, enclose it in single quotes (e.g., "'New York, NY'").
+    - If a value contains a comma, enclose it in single quotes (e.g., `'New York, NY'`).
   - filter_expression: A Looker expression filter string (custom filter). This allows complex logic and comparing fields.
     - Reference fields using `${view.field_name}` syntax.
     - Supports logical operators (`AND`, `OR`, `NOT`) and comparison operators.
@@ -37741,6 +39064,106 @@ description: |
 
 
 ========================================================================
+## looker-update-dashboard-element
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-update-dashboard-element
+**URL:** https://mcp-toolbox.dev/dev/integrations/looker/tools/looker-update-dashboard-element/
+**Description:** "looker-update-dashboard-element" updates an existing element in a Looker dashboard.
+
+
+
+## About
+
+The `looker-update-dashboard-element` tool updates an existing query element (tile) in a Looker dashboard. It reconstructs the query for the element using the provided parameters and updates its title and visualization configuration.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Example
+
+```yaml
+kind: tool
+name: update_dashboard_element
+type: looker-update-dashboard-element
+source: looker-source
+description: |
+  This tool updates an existing query element (tile) in a Looker dashboard.
+  It reconstructs the query for the element using the provided parameters
+  and updates its title and visualization configuration.
+
+  Required Parameters:
+  - dashboard_id: The ID of the dashboard containing the element.
+  - dashboard_element_id: The ID of the element to update.
+  - model, explore, fields: These query parameters define the data for the tile.
+
+  Optional Parameters:
+  - title: The new title for the dashboard tile.
+  - pivots, filters, sorts, limit, tz: These query parameters customize the tile's query.
+  - vis_config: A JSON object defining the visualization settings.
+  - dashboard_filters: An array of dashboard filters to connect to this element.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+|:------------|:--------:|:------------:|----------------------------------------------------|
+| type        | string   | true         | Must be "looker-update-dashboard-element".        |
+| source      | string   | true         | Name of the Looker source.                         |
+| description | string   | true         | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## looker-update-dashboard-layout-component
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-update-dashboard-layout-component
+**URL:** https://mcp-toolbox.dev/dev/integrations/looker/tools/looker-update-dashboard-layout-component/
+**Description:** "looker-update-dashboard-layout-component" updates a dashboard layout component.
+
+
+
+## About
+
+The `looker-update-dashboard-layout-component` tool updates a dashboard layout component, allowing you to move a tile to a different tab (layout) and/or change its position and size.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Example
+
+```yaml
+kind: tool
+name: update_dashboard_layout_component
+type: looker-update-dashboard-layout-component
+source: looker-source
+description: |
+  This tool updates a dashboard layout component, allowing you to move a tile
+  to a different tab (layout) and/or change its position and size.
+
+  Parameters:
+  - dashboard_layout_component_id (required): The ID of the component to update.
+  - dashboard_layout_id (optional): The ID of the target layout (tab) to move to.
+  - row (optional): The new row position.
+  - column (optional): The new column position.
+  - width (optional): The new width.
+  - height (optional): The new height.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description**                                    |
+|:------------|:--------:|:------------:|----------------------------------------------------|
+| type        | string   | true         | Must be "looker-update-dashboard-layout-component". |
+| source      | string   | true         | Name of the Looker source.                         |
+| description | string   | true         | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
 ## looker-update-project-file
 ========================================================================
 **Hierarchy:** MCP Toolbox for Databases > Integrations > Looker > Tools > looker-update-project-file
@@ -38201,7 +39624,7 @@ In this section, we will download Toolbox and run the Toolbox server.
     <!-- {x-release-please-start-version} -->
     ```bash
     export OS="linux/amd64" # one of linux/amd64, darwin/arm64, darwin/amd64, windows/amd64, or windows/arm64
-    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/$OS/toolbox
+    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/$OS/toolbox
     ```
     <!-- {x-release-please-end} -->
 
@@ -38362,7 +39785,7 @@ In this section, we will download Toolbox and run the Toolbox server.
     <!-- {x-release-please-start-version} -->
     ```bash
     export OS="linux/amd64" # one of linux/amd64, darwin/arm64, darwin/amd64, windows/amd64, or windows/arm64
-    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/$OS/toolbox
+    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/$OS/toolbox
     ```
     <!-- {x-release-please-end} -->
 
@@ -38485,7 +39908,7 @@ In this section, we will download Toolbox and run the Toolbox server.
     <!-- {x-release-please-start-version} -->
     ```bash
     export OS="linux/amd64" # one of linux/amd64, darwin/arm64, darwin/amd64, windows/amd64, or windows/arm64
-    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.8.0/$OS/toolbox
+    curl -O https://storage.googleapis.com/mcp-toolbox-for-databases/v1.9.0/$OS/toolbox
     ```
     <!-- {x-release-please-end} -->
 
@@ -47115,8 +48538,8 @@ description: |
     *   **Cloud Spanner Database User** (`roles/spanner.databaseUser`) to
         execute DML queries.
 *   **Tools:**
-    *   `execute_sql`: Executes a DML SQL query.
-    *   `execute_sql_dql`: Executes a DQL SQL query.
+    *   `execute_sql`: Execute read-write SQL statements that modify the database (DML), such as INSERT, UPDATE, DELETE, or table alterations. Do not use this tool for standard data queries or SELECT statements.
+    *   `execute_sql_readonly`: Execute read-only SQL queries (DQL) such as SELECT statements, metadata inspections, or information_schema queries. Use this tool as the default for any data retrieval tasks.
     *   `list_tables`: Lists tables in the database.
     *   `list_graphs`: Lists graphs in the database.
     *   `search_catalog`: Searches for data assets in Knowledge Catalog (Dataplex).
@@ -49165,6 +50588,7 @@ Configure the Gemini CLI to talk to your local Toolbox MCP server.
 | `-p`         | `--port`                   | Port the server will listen on.                                                                                                                                           | `5000`      |
 |              | `--tls-cert`               | Path to the PEM-encoded TLS certificate file.                                                                                                                             |             |
 |              | `--tls-key`                | Path to the PEM-encoded TLS private key file.                                                                                                                             |             |
+|              | `--toolbox-url`            | Specifies the absolute Toolbox URL (e.g., `https://my-toolbox.example.com`). Used as the resource field in the MCP PRM file when MCP Auth is enabled. Falls back to `TOOLBOX_URL` environment variable. |             |
 |              | `--prebuilt`               | Use one or more prebuilt tool configuration by source type. Optionally specify a toolset suffix (e.g., `<source>/<toolset>`) to load only that toolset. These prebuilt configs are intended for 'build-time' use cases, where agents are helping trusted developers build things. They are not secure enough for 'run time' use cases, where the agent will be talking to potentially untrusted developers. See [Prebuilt Tools Reference](../documentation/configuration/prebuilt-configs/_index.md) for allowed values. |             |
 |              | `--stdio`                  | Listens via MCP STDIO instead of acting as a remote HTTP server.                                                                                                          |             |
 |              | `--telemetry-gcp`          | Enable exporting directly to Google Cloud Monitoring.                                                                                                                     |             |
@@ -49202,6 +50626,30 @@ toolbox invoke <tool-name> [params]
 - `params`: (Optional) A JSON string containing the parameters for the tool.
 
 For more detailed instructions, see [Invoke Tools via CLI](../documentation/configuration/tools/invoke_tool.md).
+
+</details>
+
+<details>
+<summary><code>migrate</code></summary>
+
+Rewrites configuration files from the legacy nested format (top-level `sources:`, `tools:`, `toolsets:` maps) into the flat format, where each resource is its own YAML document with a `kind` field.
+
+This subcommand also converts `toolset` primitive into `group` primitive.
+
+**Syntax:**
+
+```bash
+toolbox migrate --config <path>
+```
+
+**Flags:**
+
+- `--config`: (Optional) Path to a configuration file to migrate. Defaults to `tools.yaml` when no other config flag is set.
+- `--configs`: (Optional) Comma-separated list of configuration files to migrate.
+- `--config-folder`: (Optional) Path to a folder whose `.yaml` and `.yml` files should be migrated.
+- `--dry-run`: (Optional) Print the migrated configuration to stdout instead of writing it.
+
+`--config`, `--configs`, and `--config-folder` are mutually exclusive. Each file is rewritten in place, with the original kept alongside it with `.bak` appended (e.g., `tools.yaml.bak`); a file that needs no changes is left as is. Comments other than top-level ones are not preserved, so review the result before deleting the backup.
 
 </details>
 
