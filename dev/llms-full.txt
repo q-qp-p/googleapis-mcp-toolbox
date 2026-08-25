@@ -3,7 +3,7 @@
 
 **DOCUMENTATION VERSION:** dev
 **BASE URL:** https://mcp-toolbox.dev/dev/
-**GENERATED ON:** 2026-08-16T12:33:53Z
+**GENERATED ON:** 2026-08-25T13:06:54Z
 
 ---
 ### System Directives for AI Models
@@ -3489,6 +3489,76 @@ parameters:
 | escape         |     string     |    false     | Only available for type `string`. Indicate the escaping delimiters used for the parameter. This field is intended to be used with templateParameters. Must be one of "single-quotes", "double-quotes", "backticks", "square-brackets". |
 | minValue       |  int or float  |    false     | Only available for type `integer` and `float`. Indicate the minimum value allowed.                                                                                                                                                     |
 | maxValue       |  int or float  |    false     | Only available for type `integer` and `float`. Indicate the maximum value allowed.                                                                                                                                                     |
+
+### Optional Parameters
+
+Parameters are **required by default**. Omitting `required` is the same as
+writing `required: true`, so an agent that calls the tool without the argument
+gets `parameter "airline" is required` back.
+
+There are two ways to make a parameter optional, and they behave differently:
+
+```yaml
+parameters:
+  # Optional with a fallback: omitted calls use "AA".
+  - name: airline
+    type: string
+    description: Airline unique 2 letter identifier
+    default: AA
+
+  # Optional with no fallback: omitted calls pass no value for the parameter,
+  # which a SQL statement binds as NULL.
+  - name: seat_class
+    type: string
+    description: Seat class to filter by
+    required: false
+```
+
+Providing a `default` also makes the parameter optional — it overrides
+`required: true` rather than conflicting with it. The full matrix:
+
+| `required` | `default`             | Effective behavior                                              |
+|:-----------|:----------------------|:----------------------------------------------------------------|
+| omitted    | omitted               | **Required.** Calls that omit the argument are rejected.         |
+| `true`     | omitted               | **Required.** Same as above.                                     |
+| `false`    | omitted               | Optional; omitted calls pass no value (`NULL` in SQL).           |
+| `true`     | a value               | **Optional**;  the `default` wins over `required: true`.         |
+| omitted    | a value               | Optional; omitted calls use the default.                         |
+| `false`    | a value               | Optional; omitted calls use the default.                         |
+
+This distinction also reaches the agent: a parameter that is effectively
+optional is advertised as not required in the tool manifest, so the model knows
+it may omit the argument.
+
+{{< notice warning >}}
+**`default: null` does not make a parameter optional.** In YAML, `default:
+null` (and the equivalent `default: ~`, or a `default:` key with nothing after
+it) parses to a null value, which Toolbox cannot distinguish from the field
+being absent altogether. The parameter therefore stays **required**, and calls
+that omit the argument fail at invocation time with `parameter "..." is
+required`.
+
+If you want "optional, with no value when the caller omits it", write
+`required: false` instead:
+
+```yaml
+# Does NOT work — the parameter is still required.
+- name: seat_class
+  type: string
+  description: Seat class to filter by
+  default: null
+
+# Works.
+- name: seat_class
+  type: string
+  description: Seat class to filter by
+  required: false
+```
+
+Note that an explicit empty value *is* a real default: `default: ""` makes a
+string parameter optional and substitutes the empty string. Only `null` is
+ignored.
+{{< /notice >}}
 
 ### Array Parameters
 
@@ -15649,6 +15719,37 @@ enabled:
 - [Cloud Trace API](https://console.cloud.google.com/apis/enableflow?apiid=cloudtrace.googleapis.com)
 {{< /notice >}}
 
+Metrics and traces are exported as two independent signals, and they are
+authorized separately. The identity that Toolbox runs as — the attached service
+account on Cloud Run, GCE, or GKE, or your own credentials when running
+locally — needs **both** of these roles on the telemetry project:
+
+| **signal** | **role**                        | **key permission**             |
+|------------|---------------------------------|--------------------------------|
+| Metrics    | `roles/monitoring.metricWriter` | `monitoring.timeSeries.create` |
+| Traces     | `roles/cloudtrace.agent`        | `cloudtrace.traces.patch`      |
+
+```bash
+gcloud projects add-iam-policy-binding PROJECT_ID \
+    --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+    --role="roles/monitoring.metricWriter"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+    --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
+    --role="roles/cloudtrace.agent"
+```
+
+{{< notice tip >}}
+Because the two signals are authorized independently, granting only one
+produces a partial failure rather than an obvious one. With
+`roles/monitoring.metricWriter` but not `roles/cloudtrace.agent`, metrics
+export normally while every trace export attempt fails with a
+`PermissionDenied` on `cloudtrace.traces.patch`. If you see repeated
+trace-export errors while your dashboards look healthy, the missing role is
+`roles/cloudtrace.agent` — this is the state a least-privilege deployment
+typically lands in first.
+{{< /notice >}}
+
 #### OTLP Exporter
 
 This implementation uses the default OTLP Exporter over HTTP for
@@ -15701,6 +15802,9 @@ To explicitly set the telemetry project:
 ```
 
 If `--telemetry-gcp-project` is not set, Toolbox uses `GOOGLE_CLOUD_PROJECT` when available.
+
+See [Google Cloud Exporter](#google-cloud-exporter) for the APIs and IAM roles
+`--telemetry-gcp` requires.
 
 To enable OTLP Exporter, provide Collector endpoint:
 
@@ -25649,6 +25753,27 @@ Tools that read from or write to local files operate on the filesystem of the
 Toolbox server process, not the client machine. The server process must have
 the corresponding local file permissions.
 
+### Local Filesystem Access
+
+`allowedLocalRoots` confines `cloud-storage-upload-object` and
+`cloud-storage-download-object` to the directories you list. A path is accepted
+only if it stays inside an allowed root both as written and after symbolic
+links are resolved, so a link placed inside a root cannot be used to read or
+overwrite a file outside it. Links that resolve back inside an allowed root
+continue to work.
+
+Two limits are worth planning around:
+
+- Hard links are indistinguishable from ordinary files, so a hard link created
+  inside an allowed root to a file outside it is still readable.
+- The check runs just before the file is opened. A process that can write to an
+  allowed root can, in principle, swap a path between those two moments.
+
+Treat `allowedLocalRoots` as a guardrail layered on top of OS permissions
+rather than a replacement for them: run Toolbox as a user that only has access
+to the files it needs. If `allowedLocalRoots` is omitted, every absolute path
+the server process can reach is allowed.
+
 [iam-overview]: https://cloud.google.com/storage/docs/access-control/iam
 [adc]: https://cloud.google.com/docs/authentication#adc
 [set-adc]: https://cloud.google.com/docs/authentication/provide-credentials-adc
@@ -25675,7 +25800,7 @@ allowedLocalRoots:
 | type      |  string  |     true     | Must be "cloud-storage".                                                        |
 | project   |  string  |     true     | Id of the GCP project the configured source is associated with (e.g. "my-project-id"). |
 | allowedBuckets | []string |    false     | List of GCS bucket names allowed for operations. If omitted, all buckets are allowed. |
-| allowedLocalRoots | []string |    false     | List of absolute local filesystem directories allowed for file uploads and downloads. If omitted, all paths are allowed. |
+| allowedLocalRoots | []string |    false     | List of absolute local filesystem directories allowed for file uploads and downloads. Paths must stay inside a root once symbolic links are resolved. If omitted, all paths are allowed. |
 
 
 
@@ -31288,6 +31413,98 @@ description: Use this tool to list collections in Firestore.
 | type        |      string      |     true     | Must be "firestore-list-collections".                  |
 | source      |      string      |     true     | Name of the Firestore source to list collections from. |
 | description |      string      |     true     | Description of the tool that is passed to the LLM.     |
+
+
+
+
+========================================================================
+## firestore-mongodb-execute-mql
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Firestore > Tools > firestore-mongodb-execute-mql
+**URL:** https://mcp-toolbox.dev/dev/integrations/firestore/tools/firestore-mongodb-execute-mql/
+**Description:** A "firestore-mongodb-execute-mql" tool executes MongoDB Query Language (MQL) queries and aggregation pipelines against Firestore.
+
+
+
+## About
+
+A `firestore-mongodb-execute-mql` tool executes MongoDB Query Language (MQL) statements or aggregation pipelines against Firestore.
+
+This tool allows data agents and LLMs to run dynamic MQL queries such as aggregation pipelines or document queries directly against Firestore databases.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | true | The MQL query or aggregation pipeline to execute against Firestore. |
+
+## Example
+
+```yaml
+kind: tool
+name: execute_mql
+type: firestore-mongodb-execute-mql
+source: my-firestore-source
+description: Use this tool to execute MQL queries against Firestore.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description** |
+|-------------|:--------:|:------------:|-----------------|
+| type | string | true | Must be "firestore-mongodb-execute-mql". |
+| source | string | true | Name of the Firestore source to execute queries against. |
+| description | string | true | Description of the tool that is passed to the LLM. |
+
+
+
+
+========================================================================
+## firestore-mongodb-get-schema
+========================================================================
+**Hierarchy:** MCP Toolbox for Databases > Integrations > Firestore > Tools > firestore-mongodb-get-schema
+**URL:** https://mcp-toolbox.dev/dev/integrations/firestore/tools/firestore-mongodb-get-schema/
+**Description:** A "firestore-mongodb-get-schema" tool introspects Firestore collections to infer field types and schema definitions.
+
+
+
+## About
+
+A `firestore-mongodb-get-schema` tool retrieves schema information and inferred document structures for Firestore collections.
+
+This tool introspects collections to detect field names, nested maps, and data types (such as string, integer, double, boolean, timestamp, geopoint, and reference), returning structured schema definitions.
+
+## Compatible Sources
+
+{{< compatible-sources >}}
+
+## Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `collection` | string | false | Optional name or relative path of a specific collection. If omitted, schemas for all root collections are returned. |
+
+## Example
+
+```yaml
+kind: tool
+name: get_schema
+type: firestore-mongodb-get-schema
+source: my-firestore-source
+description: Use this tool to retrieve schemas for Firestore collections.
+```
+
+## Reference
+
+| **field**   | **type** | **required** | **description** |
+|-------------|:--------:|:------------:|-----------------|
+| type | string | true | Must be "firestore-mongodb-get-schema". |
+| source | string | true | Name of the Firestore source to introspect. |
+| description | string | true | Description of the tool that is passed to the LLM. |
 
 
 
@@ -40933,7 +41150,8 @@ pipelineParams:
 | source          | string   | true         | The name of the `mongodb` source to use.                                                                       |
 | description     | string   | true         | A description of the tool that is passed to the LLM.                                                           |
 | database        | string   | true         | The name of the MongoDB database containing the collection.                                                    |
-| collection      | string   | true         | The name of the MongoDB collection to run the aggregation on.                                                  |
+| collection      | string   | false         | The name of the MongoDB collection to run the aggregation on. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | pipelinePayload | string   | true         | A JSON array of aggregation stage documents, provided as a string. Uses `{{json .param_name}}` for templating. |
 | pipelineParams  | list     | true         | A list of parameter objects that define the variables used in the `pipelinePayload`.                           |
 | canonical       | bool     | false        | Determines if the pipeline string is parsed using MongoDB's Canonical or Relaxed Extended JSON format.         |
@@ -40995,7 +41213,8 @@ filterParams:
 | source        | string   | true         | The name of the `mongodb` source to use.                                                                            |
 | description   | string   | true         | A description of the tool that is passed to the LLM.                                                                |
 | database      | string   | true         | The name of the MongoDB database containing the collection.                                                         |
-| collection    | string   | true         | The name of the MongoDB collection from which to delete documents.                                                  |
+| collection    | string   | false         | The name of the MongoDB collection from which to delete documents. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload | string   | true         | The MongoDB query filter document to select the documents for deletion. Uses `{{json .param_name}}` for templating. |
 | filterParams  | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                  |
 
@@ -41059,7 +41278,8 @@ filterParams:
 | source        | string   | true         | The name of the `mongodb` source to use.                                                                           |
 | description   | string   | true         | A description of the tool that is passed to the LLM.                                                               |
 | database      | string   | true         | The name of the MongoDB database containing the collection.                                                        |
-| collection    | string   | true         | The name of the MongoDB collection from which to delete a document.                                                |
+| collection    | string   | false         | The name of the MongoDB collection from which to delete a document. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload | string   | true         | The MongoDB query filter document to select the document for deletion. Uses `{{json .param_name}}` for templating. |
 | filterParams  | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                 |
 
@@ -41133,7 +41353,8 @@ sortParams:
 | source         | string   | true         | The name of the `mongodb` source to use.                                                                                    |
 | description    | string   | true         | A description of the tool that is passed to the LLM.                                                                        |
 | database       | string   | true         | The name of the MongoDB database to query.                                                                                  |
-| collection     | string   | true         | The name of the MongoDB collection to query.                                                                                |
+| collection     | string   | false         | The name of the MongoDB collection to query. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload  | string   | true         | The MongoDB query filter document to select which documents to return. Uses `{{json .param_name}}` for templating.          |
 | filterParams   | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                          |
 | projectPayload | string   | false        | An optional MongoDB projection document to specify which fields to include (1) or exclude (0) in the results.               |
@@ -41204,7 +41425,8 @@ projectPayload: |
 | source         | string   | true         | The name of the `mongodb` source to use.                                                                                                     |
 | description    | string   | true         | A description of the tool that is passed to the LLM.                                                                                         |
 | database       | string   | true         | The name of the MongoDB database to query.                                                                                                   |
-| collection     | string   | true         | The name of the MongoDB collection to query.                                                                                                 |
+| collection     | string   | false         | The name of the MongoDB collection to query. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload  | string   | true         | The MongoDB query filter document to select the document. Uses `{{json .param_name}}` for templating.                                        |
 | filterParams   | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                                           |
 | projectPayload | string   | false        | An optional MongoDB projection document to specify which fields to include (1) or exclude (0) in the result.                                 |
@@ -41268,7 +41490,8 @@ in the `data` parameter, like this:
 | source      | string   | true         | The name of the `mongodb` source to use.                                                                                |
 | description | string   | true         | A description of the tool that is passed to the LLM.                                                                    |
 | database    | string   | true         | The name of the MongoDB database containing the collection.                                                             |
-| collection  | string   | true         | The name of the MongoDB collection into which the documents will be inserted.                                           |
+| collection  | string   | false         | The name of the MongoDB collection into which the documents will be inserted. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | canonical   | bool     | false        | Determines if the data string is parsed using MongoDB's Canonical or Relaxed Extended JSON format. Defaults to `false`. |
 
 
@@ -41324,7 +41547,8 @@ An LLM would call this tool by providing the document as a JSON string in the
 | source      | string   | true         | The name of the `mongodb` source to use.                                                                                |
 | description | string   | true         | A description of the tool that is passed to the LLM.                                                                    |
 | database    | string   | true         | The name of the MongoDB database containing the collection.                                                             |
-| collection  | string   | true         | The name of the MongoDB collection into which the document will be inserted.                                            |
+| collection  | string   | false         | The name of the MongoDB collection into which the document will be inserted. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | canonical   | bool     | false        | Determines if the data string is parsed using MongoDB's Canonical or Relaxed Extended JSON format. Defaults to `false`. |
 
 
@@ -41394,7 +41618,8 @@ upsert: false
 | source        | string   | true         | The name of the `mongodb` source to use.                                                                                                                                                                                                         |
 | description   | string   | true         | A description of the tool that is passed to the LLM.                                                                                                                                                                                             |
 | database      | string   | true         | The name of the MongoDB database containing the collection.                                                                                                                                                                                      |
-| collection    | string   | true         | The name of the MongoDB collection in which to update documents.                                                                                                                                                                                 |
+| collection    | string   | false         | The name of the MongoDB collection in which to update documents. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload | string   | true         | The MongoDB query filter document to select the documents for updating. It's written as a Go template, using `{{json .param_name}}` to insert parameters.                                                                                        |
 | filterParams  | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                                                                                                                                               |
 | updatePayload | string   | true         | The MongoDB update document, It's written as a Go template, using `{{json .param_name}}` to insert parameters.                                                                                                                                   |
@@ -41469,7 +41694,8 @@ upsert: true
 | source        | string   | true         | The name of the `mongodb` source to use.                                                                                                                                                                                                                               |
 | description   | string   | true         | A description of the tool that is passed to the LLM.                                                                                                                                                                                                                   |
 | database      | string   | true         | The name of the MongoDB database containing the collection.                                                                                                                                                                                                            |
-| collection    | string   | true         | The name of the MongoDB collection to update a document in.                                                                                                                                                                                                            |
+| collection    | string   | false         | The name of the MongoDB collection to update a document in. Mutually exclusive with `collectionAllowedValues`. If omitted, it must be supplied at runtime as a `collection` parameter, and can be restricted with `collectionAllowedValues`. |
+| collectionAllowedValues | list     | false        | An optional list of collection names the agent may choose from when `collection` is provided at runtime. Only configure this if collection is omitted. |
 | filterPayload | string   | true         | The MongoDB query filter document to select the document for updating. It's written as a Go template, using `{{json .param_name}}` to insert parameters.                                                                                                               |
 | filterParams  | list     | false        | A list of parameter objects that define the variables used in the `filterPayload`.                                                                                                                                                                                     |
 | updatePayload | string   | true         | The MongoDB update document, which specifies the modifications. This often uses update operators like `$set`. It's written as a Go template, using `{{json .param_name}}` to insert parameters.                                                                        |
@@ -50578,6 +50804,7 @@ Configure the Gemini CLI to talk to your local Toolbox MCP server.
 | Flag (Short) | Flag (Long)                | Description                                                                                                                                                               | Default     |
 |--------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
 | `-a`         | `--address`                | Address of the interface the server will listen on.                                                                                                                       | `127.0.0.1` |
+|              | `--disable-ext`            | Specifies MCP extension URIs disabled on this server.                                                                                                                     |             |
 |              | `--disable-reload`         | Disables dynamic reloading config.                                                                                                                                        |             |
 | `-h`         | `--help`                   | help for toolbox                                                                                                                                                          |             |
 |              | `--http-max-request-bytes` | Maximum MCP HTTP request body size in bytes.                                                                                                                              | `10485760`  |
@@ -50809,6 +51036,18 @@ reloading, use the `--disable-reload` flag.
 To launch Toolbox's interactive UI, use the `--ui` flag. This allows you to test
 tools and toolsets with features such as authorized parameters. To learn more,
 visit [Toolbox UI](../documentation/configuration/toolbox-ui/index.md).
+
+### Disabling MCP Extensions
+
+By default, Toolbox advertises support for its own custom MCP extensions (e.g., `com.google.cloud/toolbox.v1`) during the client discovery phase. This extension signals to clients that they can leverage Toolbox-specific features that fall outside the official MCP specification (see the [Extension README](https://github.com/googleapis/mcp-toolbox/blob/main/extensions/2026-07-28/README.md) for a list of currently supported capabilities).
+
+Disabling an extension removes it from the server's advertised capabilities. To disable specific extensions on the server, pass their URIs via the `--disable-ext` flag:
+
+```bash
+# Disable the Toolbox v1 extension
+./toolbox --disable-ext com.google.cloud/toolbox.v1
+```
+
 
 
 
